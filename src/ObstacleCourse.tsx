@@ -4,6 +4,9 @@ import { useFrame } from "@react-three/fiber";
 import { RigidBody, RapierRigidBody } from "@react-three/rapier";
 import { Text, Float } from "@react-three/drei";
 import { RPC, isHost, myPlayer, setState, usePlayersList } from "playroomkit";
+import { ChristmasTree } from "./ChristmasTree";
+import { FallingGifts, GiftBox } from "./GiftBox";
+import { Credits } from "./Credits";
 
 const COURSE_Y = 40;
 
@@ -474,46 +477,381 @@ export function ObstacleCourse() {
       {/* 7. ФИНИШ */}
 
       <FinishZone />
+
+      {/* <VIPLounge /> */}
     </group>
   );
 }
-
 function FinishZone() {
   const players = usePlayersList();
   const [count, setCount] = useState(0);
+  const [allReached, setAllReached] = useState(false);
 
   useFrame(() => {
-    // Считаем игроков, которые по Z ушли дальше 200м (финиш)
     const reached = players.filter(
       (p) => (p.getState("pos")?.z || 0) > 205
     ).length;
     setCount(reached);
 
-    // Если все (минимум 2) дошли — меняем стадию игры
-    if (reached >= players.length && players.length > 0 && isHost()) {
-      // setState("gameStage", "RED_LIGHT_GREEN_LIGHT", true);
+    if (
+      reached >= players.length &&
+      players.length > 0 &&
+      !allReached &&
+      isHost()
+    ) {
+      setAllReached(true);
     }
   });
 
   return (
-    <RigidBody
-      type="fixed"
-      position={[0, COURSE_Y - 0.5, 210]}
-      colliders="cuboid"
-    >
-      <mesh>
-        <boxGeometry args={[20, 1, 20]} />
-        <meshStandardMaterial color="gold" />
-      </mesh>
-      <Text
-        position={[0, 4, 15]}
-        rotation={[0, Math.PI * 1, 0]}
-        fontSize={1}
-        color="white"
+    <>
+      <RigidBody
+        type="fixed"
+        position={[0, COURSE_Y - 0.5, 210]}
+        colliders="cuboid"
       >
-        PLAYERS READY: {count} / {players.length}
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[30, 1, 30]} />
+          <meshStandardMaterial
+            color={allReached ? "#1a1a2e" : "#cd7f32"}
+            metalness={0.9}
+            roughness={0.1}
+            emissive={allReached ? "#ffd700" : "#000"}
+            emissiveIntensity={allReached ? 0.3 : 0}
+          />
+        </mesh>
+
+        {allReached && (
+          <group position={[0, 1, 0]}>
+            <ChristmasTree scale={5} />
+          </group>
+        )}
+
+        {allReached &&
+          Array.from({ length: 12 }).map((_, i) => {
+            const angle = (i / 12) * Math.PI * 2;
+            const radius = 8;
+            return (
+              <group
+                key={i}
+                position={[
+                  Math.cos(angle) * radius,
+                  0.8,
+                  Math.sin(angle) * radius,
+                ]}
+              >
+                <GiftBox
+                  id={`victory_gift_${i}`}
+                  position={[0, 0, 0]}
+                  isDynamic={false}
+                />
+              </group>
+            );
+          })}
+
+        {allReached && (
+          <Float speed={2} rotationIntensity={1}>
+            <mesh castShadow position={[0, 12, 0]}>
+              <sphereGeometry args={[1.5, 32, 32]} />
+              <meshStandardMaterial
+                color="#ffffff"
+                metalness={1}
+                roughness={0}
+                emissive="#ffffff"
+                emissiveIntensity={0.5}
+              />
+            </mesh>
+            <pointLight
+              position={[0, 12, 0]}
+              intensity={30}
+              distance={25}
+              color="#ffffff"
+            />
+          </Float>
+        )}
+
+        <Float speed={2} floatIntensity={allReached ? 1 : 0.3}>
+          <Text
+            position={[0, 15, 15]}
+            rotation={[0, Math.PI, 0]}
+            fontSize={allReached ? 3 : 1}
+            color={allReached ? "#ffd700" : "white"}
+            outlineWidth={0.15}
+            outlineColor="black"
+          >
+            {allReached
+              ? "🎄 VICTORY! 🎄"
+              : `PLAYERS READY: ${count} / ${players.length}`}
+          </Text>
+        </Float>
+
+        {allReached && (
+          <Float speed={1.5}>
+            <Text
+              position={[0, 13, 15]}
+              rotation={[0, Math.PI, 0]}
+              fontSize={1.2}
+              color="cyan"
+              outlineWidth={0.08}
+              outlineColor="black"
+            >
+              🎁 Gift Rain Activated! 🎁
+            </Text>
+          </Float>
+        )}
+      </RigidBody>
+
+      {allReached && (
+        <group position={[0, 0, 15]}>
+          <Credits active={true} />
+        </group>
+      )}
+
+      <FallingGifts active={allReached} />
+
+      {/* ТОЛЬКО ОДНА DIRECTIONAL LIGHT ДЛЯ ТЕНЕЙ */}
+      <directionalLight
+        position={[15, 40, 220]}
+        intensity={1.5}
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
+      />
+
+      {allReached && (
+        <>
+          {/* Прожекторы БЕЗ castShadow (для производительности) */}
+          <spotLight
+            position={[-20, 25, 210]}
+            angle={0.5}
+            penumbra={0.5}
+            intensity={100}
+            color="#ffd700"
+          />
+          <spotLight
+            position={[20, 25, 210]}
+            angle={0.5}
+            penumbra={0.5}
+            intensity={100}
+            color="#00ffff"
+          />
+
+          <pointLight
+            position={[0, 20, 210]}
+            intensity={50}
+            distance={30}
+            color="#ffffff"
+          />
+
+          {Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 12;
+            const colors = [
+              "#ff0000",
+              "#00ff00",
+              "#0000ff",
+              "#ffff00",
+              "#ff00ff",
+              "#00ffff",
+            ];
+            return (
+              <pointLight
+                key={i}
+                position={[
+                  Math.cos(angle) * radius,
+                  COURSE_Y + 3,
+                  210 + Math.sin(angle) * radius,
+                ]}
+                intensity={10}
+                distance={8}
+                color={colors[i % colors.length]}
+              />
+            );
+          })}
+        </>
+      )}
+    </>
+  );
+}
+
+// === ФЕЙЕРВЕРКИ ===
+function Fireworks({ position }: { position: [number, number, number] }) {
+  const particles = useRef<THREE.Points>(null);
+  const [explosions, setExplosions] = useState<
+    Array<{ pos: THREE.Vector3; time: number; color: string }>
+  >([]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const colors = [
+        "#ff0000",
+        "#00ff00",
+        "#0000ff",
+        "#ffff00",
+        "#ff00ff",
+        "#00ffff",
+      ];
+      setExplosions((prev) => [
+        ...prev,
+        {
+          pos: new THREE.Vector3(
+            (Math.random() - 0.5) * 20,
+            Math.random() * 10 + 5,
+            (Math.random() - 0.5) * 20
+          ),
+          time: Date.now(),
+          color: colors[Math.floor(Math.random() * colors.length)],
+        },
+      ]);
+    }, 800);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useFrame(() => {
+    // Удаляем старые взрывы
+    setExplosions((prev) => prev.filter((e) => Date.now() - e.time < 2000));
+  });
+
+  return (
+    <group position={position}>
+      {explosions.map((exp, i) => (
+        <FireworkExplosion
+          key={`${exp.time}_${i}`}
+          position={exp.pos}
+          color={exp.color}
+        />
+      ))}
+    </group>
+  );
+}
+
+function FireworkExplosion({
+  position,
+  color,
+}: {
+  position: THREE.Vector3;
+  color: string;
+}) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const startTime = useRef(Date.now());
+
+  const particles = useMemo(() => {
+    const count = 100;
+    const positions = new Float32Array(count * 3);
+    const velocities: THREE.Vector3[] = [];
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = 0;
+      positions[i * 3 + 1] = 0;
+      positions[i * 3 + 2] = 0;
+
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10
+      );
+      velocities.push(vel);
+    }
+
+    return { positions, velocities };
+  }, []);
+
+  useFrame((state, delta) => {
+    if (!pointsRef.current) return;
+
+    const elapsed = (Date.now() - startTime.current) / 1000;
+    const positions = pointsRef.current.geometry.attributes.position
+      .array as Float32Array;
+
+    for (let i = 0; i < particles.velocities.length; i++) {
+      positions[i * 3] += particles.velocities[i].x * delta;
+      positions[i * 3 + 1] +=
+        particles.velocities[i].y * delta - 9.8 * delta * elapsed;
+      positions[i * 3 + 2] += particles.velocities[i].z * delta;
+    }
+
+    pointsRef.current.geometry.attributes.position.needsUpdate = true;
+
+    // Fade out
+    if (pointsRef.current.material instanceof THREE.PointsMaterial) {
+      pointsRef.current.material.opacity = Math.max(0, 1 - elapsed / 2);
+    }
+  });
+
+  return (
+    <points ref={pointsRef} position={position}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particles.positions.length / 3}
+          array={particles.positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial size={0.2} color={color} transparent opacity={1} />
+    </points>
+  );
+}
+
+// === VIP LOUNGE (Новая секретная зона) ===
+function VIPLounge() {
+  return (
+    <group position={[0, COURSE_Y, 300]}>
+      {/* Платформа */}
+      <RigidBody type="fixed" colliders="cuboid">
+        <mesh receiveShadow>
+          <boxGeometry args={[30, 1, 30]} />
+          <meshStandardMaterial
+            color="#1a1a2e"
+            metalness={0.9}
+            roughness={0.1}
+          />
+        </mesh>
+      </RigidBody>
+
+      {/* Огромная елка */}
+      <ChristmasTree scale={5} position={[0, 0, 0]} />
+
+      {/* Подарки вокруг */}
+      {Array.from({ length: 12 }).map((_, i) => {
+        const angle = (i / 12) * Math.PI * 2;
+        const radius = 8;
+        return (
+          <GiftBox
+            key={i}
+            id={`vip_gift_${i}`}
+            position={[
+              Math.cos(angle) * radius,
+              COURSE_Y + 0.5,
+              Math.sin(angle) * radius + 300,
+            ]}
+          />
+        );
+      })}
+
+      {/* Диско-шар */}
+      <Float speed={2} rotationIntensity={1}>
+        <mesh position={[0, 10, 0]}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial color="#ffffff" metalness={1} roughness={0} />
+        </mesh>
+        <pointLight
+          position={[0, 10, 0]}
+          intensity={20}
+          distance={20}
+          color="#ffffff"
+        />
+      </Float>
+
+      <Text position={[0, 12, 0]} fontSize={2} color="#ffd700">
+        🎄 VIP LOUNGE 🎄
       </Text>
-    </RigidBody>
+    </group>
   );
 }
 

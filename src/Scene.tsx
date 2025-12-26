@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useMemo, useEffect, useState } from "react";
 import * as THREE from "three";
 import { Physics, RigidBody } from "@react-three/rapier";
 import { Stars, Text } from "@react-three/drei";
@@ -15,7 +15,7 @@ import {
   OptimizedForest,
 } from "./Decorations";
 import type { EffectComposer } from "three/examples/jsm/Addons.js";
-import { getState, isHost, setState } from "playroomkit";
+import { getState, isHost, RPC, setState } from "playroomkit";
 import { SquidGameStage } from "./SquidGameStage";
 
 export function Scene() {
@@ -74,8 +74,8 @@ export function Scene() {
       />
 
       <Stars
-        radius={100}
-        depth={50}
+        radius={200}
+        depth={80}
         count={3000}
         factor={4}
         saturation={0}
@@ -109,24 +109,9 @@ export function Scene() {
         <group position={[-8, 0, 50]} scale={[2.8, 3, 2.8]}>
           <ChristmasTree />
         </group>
-        {/* <group position={[20, 0, 5]} scale={[0.8, 0.8, 0.8]}>
-          <ChristmasTree />
-        </group> */}
 
         <OptimizedForest trees={forestTrees} />
 
-        {/* Лес */}
-        {/* {forestTrees.map((tree, i) => (
-          <group
-            key={i}
-            position={tree.pos}
-            scale={[tree.scale, tree.scale, tree.scale]}
-          >
-            <ChristmasTree />
-          </group>
-        ))} */}
-
-        {/* ОБНОВЛЕННАЯ ПОЛОСА ПРЕПЯТСТВИЙ (В небе) */}
         {/* <ObstacleCourse /> */}
         {currentStage === "OBSTACLE_COURSE" && <ObstacleCourse />}
         {currentStage === "RED_LIGHT_GREEN_LIGHT" && <SquidGameStage />}
@@ -162,4 +147,62 @@ export function Scene() {
       </Physics>
     </>
   );
+}
+
+export function BackgroundMusic() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  useEffect(() => {
+    // Создаем аудио
+    audioRef.current = new Audio("/bg-1.mp3");
+    audioRef.current.loop = true;
+    audioRef.current.volume = 0.3;
+
+    // Обработчик успешного запуска
+    audioRef.current.addEventListener("canplaythrough", () => {
+      console.log("Audio ready to play");
+    });
+
+    // Обработчик ошибок
+    audioRef.current.addEventListener("error", (e) => {
+      console.error("Audio error:", e);
+      console.error("Failed to load:", audioRef.current?.src);
+    });
+
+    const playAudio = async () => {
+      try {
+        await audioRef.current?.play();
+        setIsPlaying(true);
+        console.log("Music playing!");
+      } catch (err) {
+        console.log("Autoplay blocked, click anywhere to start music");
+        setIsPlaying(false);
+      }
+    };
+
+    // Пытаемся запустить сразу
+    playAudio();
+
+    // Запуск по клику
+    const handleInteraction = () => {
+      if (!isPlaying) {
+        playAudio();
+      }
+      window.removeEventListener("click", handleInteraction);
+      window.removeEventListener("keydown", handleInteraction);
+    };
+
+    window.addEventListener("click", handleInteraction);
+    window.addEventListener("keydown", handleInteraction);
+
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+      window.removeEventListener("click", handleInteraction);
+      window.removeEventListener("keydown", handleInteraction);
+    };
+  }, []);
+
+  return null;
 }

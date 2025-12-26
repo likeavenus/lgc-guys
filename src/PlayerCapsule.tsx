@@ -14,6 +14,7 @@ import { GameEvents } from "./GameState";
 const MOVE_SPEED = 9;
 const JUMP_FORCE = 17;
 const GRAVITY_SCALE = 2.3;
+const startZ = Math.floor(Math.random() * 20);
 
 export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
   const body = useRef<RapierRigidBody>(null);
@@ -270,7 +271,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
 
   useEffect(() => {
     console.log("name: ", name);
-    if (isMe && name === "Squirrel66") {
+    if (isMe && name === "Darya Kotik") {
       console.log("!!!");
       playerState.setState("role", "angel");
     }
@@ -284,7 +285,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
       enabledRotations={[false, false, false]}
       gravityScale={isDead ? 0 : GRAVITY_SCALE}
       type={isDead ? "kinematicPosition" : "dynamic"}
-      position={[0, 50, 136]}
+      position={[0, 50, 200]}
       onIntersectionEnter={({ other }) => {
         if (other.rigidBodyObject?.userData?.isLadder) setIsClimbing(true);
         if (isDead && other.rigidBodyObject?.userData?.isMedkit) {

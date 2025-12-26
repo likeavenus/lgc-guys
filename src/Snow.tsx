@@ -1,23 +1,23 @@
 import { useRef, useMemo } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 
-const COUNT = 1000;
+const COUNT = 1500;
 
 export function Snow() {
   const mesh = useRef<THREE.InstancedMesh>(null);
+  const { camera } = useThree();
 
-  // Генерируем начальные позиции
   const particles = useMemo(() => {
     const temp = [];
     for (let i = 0; i < COUNT; i++) {
       const t = Math.random() * 100;
-      const factor = 20 + Math.random() * 100;
       const speed = 0.01 + Math.random() / 200;
-      const xOffset = Math.random() * 100 - 50;
-      const zOffset = Math.random() * 100 - 50;
-      const yOffset = Math.random() * 50 + 10;
-      temp.push({ t, factor, speed, xOffset, yOffset, zOffset });
+      // РАВНОМЕРНОЕ РАСПРЕДЕЛЕНИЕ ВОКРУГ КАМЕРЫ (радиус от -40 до +40)
+      const xOffset = (Math.random() - 0.5) * 80; // -40 до +40
+      const zOffset = (Math.random() - 0.5) * 80; // -40 до +40
+      const yOffset = Math.random() * 60 + 10;
+      temp.push({ t, speed, xOffset, yOffset, zOffset });
     }
     return temp;
   }, []);
@@ -27,35 +27,45 @@ export function Snow() {
   useFrame(() => {
     if (!mesh.current) return;
 
+    const camPos = camera.position;
+
     particles.forEach((particle, i) => {
-      // Анимация падения
-      let { yOffset, speed } = particle;
+      particle.yOffset -= particle.speed * 10;
 
-      // Меняем Y (падаем вниз)
-      particle.yOffset -= speed * 10; // Скорость падения
-
-      // Если упал ниже земли (-5), возвращаем наверх
       if (particle.yOffset < -5) {
-        particle.yOffset = 50;
+        particle.yOffset = 60;
+        // При перезапуске снежинки обновляем позицию вокруг камеры
+        particle.xOffset = (Math.random() - 0.5) * 80;
+        particle.zOffset = (Math.random() - 0.5) * 100;
       }
 
-      // Небольшое покачивание по X
-      dummy.position.set(
-        particle.xOffset + Math.sin(particle.t + particle.yOffset) * 2,
-        particle.yOffset,
-        particle.zOffset
-      );
+      // Позиция относительно ЦЕНТРА камеры
+      const worldX =
+        camPos.x +
+        particle.xOffset +
+        Math.sin(particle.t + particle.yOffset) * 2;
+      const worldZ = camPos.z + particle.zOffset;
+
+      dummy.position.set(worldX, particle.yOffset, worldZ);
       dummy.updateMatrix();
       mesh.current!.setMatrixAt(i, dummy.matrix);
     });
+
     mesh.current.instanceMatrix.needsUpdate = true;
   });
 
   return (
     <instancedMesh ref={mesh} args={[undefined, undefined, COUNT]}>
-      {/* Маленькие белые шарики */}
-      <sphereGeometry args={[0.05, 8, 8]} />
-      <meshBasicMaterial color="white" />
+      <sphereGeometry args={[0.1, 6, 6]} />
+      <meshStandardMaterial
+        color="#ffffff"
+        transparent
+        opacity={0.8}
+        roughness={0.3}
+        metalness={0.1}
+        side={THREE.DoubleSide} // РИСУЕМ С ОБЕИХ СТОРОН
+        depthWrite={false} // НЕ ПИШЕМ В БУФЕР ГЛУБИНЫ
+      />
     </instancedMesh>
   );
 }
