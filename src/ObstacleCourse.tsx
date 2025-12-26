@@ -493,16 +493,11 @@ function FinishZone() {
     ).length;
     setCount(reached);
 
-    if (
-      reached >= players.length &&
-      players.length > 0 &&
-      !allReached &&
-      isHost()
-    ) {
+    // УБРАЛ isHost() - теперь У ВСЕХ запустится победа!
+    if (reached >= players.length && players.length > 0 && !allReached) {
       setAllReached(true);
     }
   });
-
   return (
     <>
       <RigidBody
