@@ -285,7 +285,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
       enabledRotations={[false, false, false]}
       gravityScale={isDead ? 0 : GRAVITY_SCALE}
       type={isDead ? "kinematicPosition" : "dynamic"}
-      position={[0, 50, 200]}
+      position={[0, 5, startZ]}
       onIntersectionEnter={({ other }) => {
         if (other.rigidBodyObject?.userData?.isLadder) setIsClimbing(true);
         if (isDead && other.rigidBodyObject?.userData?.isMedkit) {

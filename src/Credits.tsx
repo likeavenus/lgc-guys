@@ -35,7 +35,7 @@ export function Credits({ active }: { active: boolean }) {
   const groupRef = useRef<THREE.Group>(null);
   const [finished, setFinished] = useState(false);
   const startY = -25; // Начальная позиция (внизу за экраном)
-  const endY = TEAM.length * 2.5 + 10; // Конечная позиция (все титры прошли)
+  const endY = TEAM.length * 2.5 + 60; // Конечная позиция (все титры прошли)
 
   useFrame((state, delta) => {
     if (!groupRef.current || !active || finished) return;
