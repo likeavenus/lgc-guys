@@ -12,7 +12,7 @@ import type { PlayerState } from "playroomkit";
 import { GameEvents } from "./GameState";
 
 const MOVE_SPEED = 9;
-const JUMP_FORCE = 17;
+const JUMP_FORCE = 18;
 const GRAVITY_SCALE = 2.3;
 const startZ = Math.floor(Math.random() * 20);
 
