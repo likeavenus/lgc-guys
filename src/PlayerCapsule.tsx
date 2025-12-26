@@ -7,7 +7,7 @@ import {
   CapsuleCollider,
   RapierRigidBody,
 } from "@react-three/rapier";
-import { getState, myPlayer, RPC, usePlayersList } from "playroomkit";
+import { getState, isHost, myPlayer, RPC, usePlayersList } from "playroomkit";
 import type { PlayerState } from "playroomkit";
 import { GameEvents } from "./GameState";
 
@@ -406,6 +406,32 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
   });
 
   const isRemoteDead = !isMe && playerState.getState("dead");
+
+  useEffect(() => {
+    if (!isMe || !isHost()) return;
+
+    const handleAdminTeleport = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "l") {
+        // Телепортируем ВСЕХ на финиш
+        RPC.call("teleportToFinish", null, RPC.Mode.ALL);
+      }
+    };
+
+    window.addEventListener("keydown", handleAdminTeleport);
+    return () => window.removeEventListener("keydown", handleAdminTeleport);
+  }, [isMe]);
+
+  // В том же файле, добавь RPC регистрацию (после useEffect с DaryaKotik):
+
+  useEffect(() => {
+    const unsub = RPC.register("teleportToFinish", () => {
+      if (body.current) {
+        body.current.setTranslation({ x: 0, y: 50, z: 210 }, true);
+        body.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (isDead) {
