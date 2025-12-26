@@ -271,7 +271,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
 
   useEffect(() => {
     console.log("name: ", name);
-    if (isMe && name === "Darya Kotik") {
+    if (isMe && name === "DaryaKotik") {
       console.log("!!!");
       playerState.setState("role", "angel");
     }
