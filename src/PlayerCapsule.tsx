@@ -404,6 +404,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
       }
     }
   });
+  е;
 
   const isRemoteDead = !isMe && playerState.getState("dead");
 
