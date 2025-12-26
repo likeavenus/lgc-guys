@@ -2,18 +2,25 @@ import { useRef, useState, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useKeyboardControls, Text, Billboard } from "@react-three/drei";
-import { RigidBody, CapsuleCollider, RapierRigidBody } from "@react-three/rapier";
-import { myPlayer, RPC } from "playroomkit";
+import {
+  RigidBody,
+  CapsuleCollider,
+  RapierRigidBody,
+} from "@react-three/rapier";
+import { getState, myPlayer, RPC, usePlayersList } from "playroomkit";
 import type { PlayerState } from "playroomkit";
 import { GameEvents } from "./GameState";
 
 const MOVE_SPEED = 9;
-const JUMP_FORCE = 21;
-const GRAVITY_SCALE = 1.5;
+const JUMP_FORCE = 15;
+const GRAVITY_SCALE = 2.2;
 
 export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
   const body = useRef<RapierRigidBody>(null);
   const visualRef = useRef<THREE.Group>(null);
+  const players = usePlayersList(true);
+  const angelPlayer = players.find((p) => p.getState("role") === "angel");
+  const [showAngelHint, setShowAngelHint] = useState(false);
 
   const [subscribeKeys, getKeys] = useKeyboardControls();
   const { camera } = useThree();
@@ -39,6 +46,24 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
   useEffect(() => {
     if (isMe) GameEvents.emit("death", isDead);
   }, [isDead, isMe]);
+
+  useEffect(() => {
+    if (!isMe) return;
+    const handleTeleport = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "t" && angelPlayer && showAngelHint) {
+        const aPos = angelPlayer.getState("pos");
+        if (aPos && body.current) {
+          body.current.setTranslation(
+            { x: aPos.x, y: aPos.y + 1, z: aPos.z },
+            true
+          );
+          body.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleTeleport);
+    return () => window.removeEventListener("keydown", handleTeleport);
+  }, [isMe, angelPlayer, showAngelHint]);
 
   useEffect(() => {
     if (!isMe) return;
@@ -93,16 +118,55 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
   useFrame((state, delta) => {
     if (!body.current) return;
 
+    const gameState = getState("squidStatus"); // "GREEN" или "RED"
+
+    if (isMe && gameState === "RED") {
+      const linvel = body.current.linvel();
+      const speed = Math.sqrt(linvel.x ** 2 + linvel.z ** 2);
+
+      if (speed > 0.5) {
+        // Если игрок двинулся больше чем на полметра
+        setIsDead(true); // Твоя готовая логика смерти
+        RPC.call("play_shot_sound", null, RPC.Mode.ALL); // Звук выстрела
+      }
+    }
+
     if (isMe) {
       const pos = body.current.translation();
       const time = state.clock.elapsedTime;
+
+      const squidStatus = getState("squidStatus");
+
+      if (squidStatus === "RED" && !isDead) {
+        const linvel = body.current.linvel();
+        // Проверяем горизонтальную скорость
+        const currentSpeed = Math.sqrt(linvel.x ** 2 + linvel.z ** 2);
+
+        if (currentSpeed > 0.3) {
+          setIsDead(true);
+          // Можно вызвать RPC для звука выстрела
+          RPC.call("playShot", null, RPC.Mode.ALL);
+        }
+      }
+
+      if (angelPlayer) {
+        const aPos = angelPlayer.getState("pos");
+        if (aPos) {
+          const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(
+            new THREE.Vector3(aPos.x, aPos.y, aPos.z)
+          );
+          setShowAngelHint(dist > 40); // Показываем подсказку, если отстали на 40м
+        }
+      }
 
       // 1. KNOCKBACK
       if (knockbackTimer.current > 0) {
         knockbackTimer.current -= delta;
         const camDir = dummyVec;
         state.camera.getWorldDirection(camDir);
-        const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(new THREE.Vector3(camDir.x, 0, camDir.z).normalize().multiplyScalar(6));
+        const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(
+          new THREE.Vector3(camDir.x, 0, camDir.z).normalize().multiplyScalar(6)
+        );
         state.camera.position.lerp(targetCamPos, 0.25);
         playerState.setState("pos", pos);
         if (visualRef.current) {
@@ -127,7 +191,9 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
       const camDir = dummyVec;
       state.camera.getWorldDirection(camDir);
 
-      const forwardDir = isDead ? camDir.clone() : new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
+      const forwardDir = isDead
+        ? camDir.clone()
+        : new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
 
       frontVector.set(0, 0, 0);
       sideVector.set(0, 0, 0);
@@ -135,11 +201,16 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
       if (forward) frontVector.add(forwardDir);
       if (back) frontVector.sub(forwardDir);
 
-      const rightDir = new THREE.Vector3().crossVectors(camDir.normalize(), new THREE.Vector3(0, 1, 0)).normalize();
+      const rightDir = new THREE.Vector3()
+        .crossVectors(camDir.normalize(), new THREE.Vector3(0, 1, 0))
+        .normalize();
       if (right) sideVector.add(rightDir);
       if (left) sideVector.sub(rightDir);
 
-      direction.subVectors(frontVector, sideVector).addVectors(frontVector, sideVector).normalize();
+      direction
+        .subVectors(frontVector, sideVector)
+        .addVectors(frontVector, sideVector)
+        .normalize();
 
       if (direction.length() > 0.1 && visualRef.current) {
         const targetRotation = Math.atan2(direction.x, direction.z);
@@ -159,7 +230,9 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
 
       // 4. ФИЗИКА
       if (isDead) {
-        const newPos = new THREE.Vector3(pos.x, pos.y, pos.z).add(direction.multiplyScalar(delta));
+        const newPos = new THREE.Vector3(pos.x, pos.y, pos.z).add(
+          direction.multiplyScalar(delta)
+        );
         body.current.setNextKinematicTranslation(newPos);
         state.camera.position.lerp(newPos, 0.5);
       } else {
@@ -167,16 +240,24 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
           let climbSpeed = 0;
           if (forward) climbSpeed = 5;
           if (back) climbSpeed = -5;
-          body.current.setLinvel({ x: direction.x, y: climbSpeed, z: direction.z }, true);
+          body.current.setLinvel(
+            { x: direction.x, y: climbSpeed, z: direction.z },
+            true
+          );
         } else {
           const linvel = body.current.linvel();
-          body.current.setLinvel({ x: direction.x, y: linvel.y, z: direction.z }, true);
+          body.current.setLinvel(
+            { x: direction.x, y: linvel.y, z: direction.z },
+            true
+          );
           if (jump && Math.abs(linvel.y) < 0.2) {
             body.current.applyImpulse({ x: 0, y: JUMP_FORCE, z: 0 }, true);
           }
         }
 
-        const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(new THREE.Vector3(camDir.x, 0, camDir.z).normalize().multiplyScalar(6));
+        const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(
+          new THREE.Vector3(camDir.x, 0, camDir.z).normalize().multiplyScalar(6)
+        );
         state.camera.position.lerp(targetCamPos, 0.25);
 
         playerState.setState("pos", pos);
@@ -210,14 +291,23 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
     }
   }, [isDead]);
 
+  useEffect(() => {
+    console.log("name: ", name);
+    if (isMe && name === "Squirrel66") {
+      console.log("!!!");
+      playerState.setState("role", "angel");
+    }
+  }, [isMe, name]);
+
   return (
     <RigidBody
       ref={body}
       colliders={false}
+      name={isMe ? "player" : `player_${playerState.id}`}
       enabledRotations={[false, false, false]}
       gravityScale={isDead ? 0 : GRAVITY_SCALE}
       type={isDead ? "kinematicPosition" : "dynamic"}
-      position={[0, 5, 0]}
+      position={[0, 50, 5]}
       onIntersectionEnter={({ other }) => {
         if (other.rigidBodyObject?.userData?.isLadder) setIsClimbing(true);
         if (isDead && other.rigidBodyObject?.userData?.isMedkit) {
@@ -240,7 +330,11 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
           body.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
           knockbackTimer.current = 0.8;
 
-          let impulse = new THREE.Vector3((Math.random() - 0.5) * 100, 50, (Math.random() - 0.5) * 100);
+          let impulse = new THREE.Vector3(
+            (Math.random() - 0.5) * 100,
+            50,
+            (Math.random() - 0.5) * 100
+          );
 
           // ЛОГИКА ДЛЯ МАЯТНИКА: Бьет по вектору удара
           if (trapType === "pendulum") {
@@ -266,13 +360,36 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
 
           body.current?.applyImpulse(impulse, true);
         }
+
+        if (other.rigidBodyObject?.userData?.isMovingPlatform) {
+          // Прилипание: переходим в kinematicPosition и "катаемся" вместе
+          body.current?.setBodyType(1); // 1 = kinematicPosition в rapier-bridge
+        }
+      }}
+      onCollisionExit={({ other }) => {
+        if (other.rigidBodyObject?.userData?.isMovingPlatform) {
+          // Возврат в динамику, как обычно
+          body.current?.setBodyType(0); // 0 = dynamic
+        }
       }}
     >
       <CapsuleCollider args={[0.5, 0.5]} />
+      {showAngelHint && isMe && (
+        <Billboard position={[0, 2.5, 0]}>
+          <Text fontSize={0.3} color="cyan">
+            Press [T] to follow Angel
+          </Text>
+        </Billboard>
+      )}
 
       <group ref={visualRef}>
         <Billboard position={[0, 1.8, 0]}>
-          <Text fontSize={0.3} color="white" outlineWidth={0.02} outlineColor="black">
+          <Text
+            fontSize={0.3}
+            color="white"
+            outlineWidth={0.02}
+            outlineColor="black"
+          >
             {name}
           </Text>
         </Billboard>
@@ -280,7 +397,9 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
         <mesh castShadow receiveShadow position={[0, 0, 0]}>
           <capsuleGeometry args={[0.5, 1, 4, 8]} />
           <meshStandardMaterial
-            color={isRemoteDead || (isMe && isDead) ? "#555" : color || "hotpink"}
+            color={
+              isRemoteDead || (isMe && isDead) ? "#555" : color || "hotpink"
+            }
             transparent
             opacity={isRemoteDead || (isMe && isDead) ? 0.5 : 1}
           />

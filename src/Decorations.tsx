@@ -1,7 +1,8 @@
 import React, { useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody, MeshCollider } from "@react-three/rapier";
+import { RigidBody, MeshCollider, CylinderCollider } from "@react-three/rapier";
+import { Instances, Instance } from "@react-three/drei";
 
 // --- Декоративные элементы ---
 
@@ -26,11 +27,42 @@ export function Fireplace({ position, rotation }: any) {
         <planeGeometry args={[1.5, 1]} />
         <meshBasicMaterial color="#ff5500" />
       </mesh>
-      <pointLight ref={fireRef} position={[0, 0.5, 1]} color="#ff5500" distance={8} intensity={2} />
+      <pointLight
+        ref={fireRef}
+        position={[0, 0.5, 1]}
+        color="#ff5500"
+        distance={8}
+        intensity={2}
+      />
     </group>
   );
 }
 
+// Оптимизированный лес
+export const OptimizedForest = ({ trees }: { trees: any[] }) => {
+  return (
+    // Группируем физику: статические объекты лучше держать в одном RigidBody типа fixed
+    <RigidBody type="fixed" colliders={false}>
+      <Instances>
+        {/* Используем одну геометрию конуса для всех веток всех деревьев */}
+        <coneGeometry args={[2, 4, 8]} />
+        <meshStandardMaterial color="#054523" />
+
+        {trees.map((tree, i) => (
+          <group key={i} position={tree.pos} scale={tree.scale}>
+            {/* Рендерим 3 яруса веток как инстансы одной геометрии */}
+            <Instance position={[0, 2, 0]} scale={0.6} />
+            <Instance position={[0, 3.5, 0]} scale={0.4} />
+            <Instance position={[0, 4.5, 0]} scale={0.2} />
+
+            {/* Добавляем коллизию только там, где она реально нужна (цилиндр в центре) */}
+            <CylinderCollider args={[2.5, 1]} position={[0, 2.5, 0]} />
+          </group>
+        ))}
+      </Instances>
+    </RigidBody>
+  );
+};
 export function ModernSofa({ position, rotation }: any) {
   return (
     <group position={position} rotation={rotation}>
@@ -57,9 +89,20 @@ export function ModernSofa({ position, rotation }: any) {
   );
 }
 
-export function Snowman({ position, rotation = [0, 0, 0] }: { position: [number, number, number]; rotation?: [number, number, number] }) {
+export function Snowman({
+  position,
+  rotation = [0, 0, 0],
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
-    <RigidBody position={position} rotation={rotation} colliders="hull" type="dynamic">
+    <RigidBody
+      position={position}
+      rotation={rotation}
+      colliders="hull"
+      type="dynamic"
+    >
       <group>
         {/* Нижний шар */}
         <mesh position={[0, 0.5, 0]} castShadow>
@@ -88,7 +131,13 @@ export function Snowman({ position, rotation = [0, 0, 0] }: { position: [number,
 
 // --- Дома ---
 
-export function ModernHouse({ position, rotation }: { position: [number, number, number]; rotation?: [number, number, number] }) {
+export function ModernHouse({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
     <group position={position} rotation={rotation}>
       <RigidBody type="fixed" colliders="hull">
@@ -107,13 +156,23 @@ export function ModernHouse({ position, rotation }: { position: [number, number,
         {/* Панорамное окно снизу */}
         <mesh position={[2, 2, 4.05]}>
           <planeGeometry args={[3, 2.5]} />
-          <meshStandardMaterial color="#88ccff" metalness={0.8} roughness={0.1} emissive="#001133" />
+          <meshStandardMaterial
+            color="#88ccff"
+            metalness={0.8}
+            roughness={0.1}
+            emissive="#001133"
+          />
         </mesh>
 
         {/* Окно сверху */}
         <mesh position={[2, 5, 3.55]}>
           <planeGeometry args={[2, 1.5]} />
-          <meshStandardMaterial color="#88ccff" metalness={0.8} roughness={0.1} emissive="#001133" />
+          <meshStandardMaterial
+            color="#88ccff"
+            metalness={0.8}
+            roughness={0.1}
+            emissive="#001133"
+          />
         </mesh>
 
         {/* Дверь */}
@@ -132,25 +191,32 @@ export function ModernHouse({ position, rotation }: { position: [number, number,
   );
 }
 
-export function ClassicHouse({ position, rotation }: { position: [number, number, number]; rotation?: [number, number, number] }) {
+export function ClassicHouse({
+  position,
+  rotation,
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   return (
     <group position={position} rotation={rotation}>
       <RigidBody type="fixed" colliders="hull">
         {/* Стены */}
         <mesh position={[0, 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[6, 4, 5]} />
-          <meshStandardMaterial color="#8B4513" /> {/* Коричневый (дерево/кирпич) */}
+          <meshStandardMaterial color="#8B4513" />{" "}
+          {/* Коричневый (дерево/кирпич) */}
         </mesh>
 
         {/* Крыша (призма через CylinderGeometry с 3 сегментами) */}
-        <mesh position={[0, 5, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
+        <mesh position={[0, 7, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
           {/* radiusTop, radiusBottom, height, radialSegments */}
           <cylinderGeometry args={[0, 4.5, 7, 4]} />
           <meshStandardMaterial color="#2c3e50" />
         </mesh>
 
         {/* Снег на крыше */}
-        <mesh position={[0, 5.1, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <mesh position={[0, 7.1, 0]} rotation={[0, Math.PI / 4, 0]}>
           <cylinderGeometry args={[0, 4.6, 7.1, 4]} />
           <meshStandardMaterial color="white" />
         </mesh>
@@ -172,7 +238,11 @@ export function ClassicHouse({ position, rotation }: { position: [number, number
           {/* Левое окно */}
           <mesh position={[-1.8, 2.5, 2.55]}>
             <boxGeometry args={[1.2, 1.2, 0.1]} />
-            <meshStandardMaterial color="#ffeba7" emissive="#ffaa00" emissiveIntensity={0.5} />
+            <meshStandardMaterial
+              color="#ffeba7"
+              emissive="#ffaa00"
+              emissiveIntensity={0.5}
+            />
           </mesh>
           {/* Рама */}
           <mesh position={[-1.8, 2.5, 2.6]}>
@@ -187,7 +257,11 @@ export function ClassicHouse({ position, rotation }: { position: [number, number
           {/* Правое окно */}
           <mesh position={[1.8, 2.5, 2.55]}>
             <boxGeometry args={[1.2, 1.2, 0.1]} />
-            <meshStandardMaterial color="#ffeba7" emissive="#ffaa00" emissiveIntensity={0.5} />
+            <meshStandardMaterial
+              color="#ffeba7"
+              emissive="#ffaa00"
+              emissiveIntensity={0.5}
+            />
           </mesh>
           <mesh position={[1.8, 2.5, 2.6]}>
             <boxGeometry args={[1.3, 0.1, 0.1]} />
@@ -200,7 +274,7 @@ export function ClassicHouse({ position, rotation }: { position: [number, number
         </group>
 
         {/* Труба */}
-        <mesh position={[1.5, 5, -1]}>
+        <mesh position={[1.5, 8, -1]}>
           <boxGeometry args={[0.6, 2, 0.6]} />
           <meshStandardMaterial color="#555" />
         </mesh>

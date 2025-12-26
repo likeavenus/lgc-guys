@@ -40,7 +40,11 @@ export function Snow() {
       }
 
       // Небольшое покачивание по X
-      dummy.position.set(particle.xOffset + Math.sin(particle.t + particle.yOffset) * 2, particle.yOffset, particle.zOffset);
+      dummy.position.set(
+        particle.xOffset + Math.sin(particle.t + particle.yOffset) * 2,
+        particle.yOffset,
+        particle.zOffset
+      );
       dummy.updateMatrix();
       mesh.current!.setMatrixAt(i, dummy.matrix);
     });

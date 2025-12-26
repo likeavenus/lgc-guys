@@ -1,5 +1,10 @@
 import { Canvas } from "@react-three/fiber";
-import { KeyboardControls, type KeyboardControlsEntry, PointerLockControls, Stats } from "@react-three/drei";
+import {
+  KeyboardControls,
+  type KeyboardControlsEntry,
+  PointerLockControls,
+  Stats,
+} from "@react-three/drei";
 import { Scene } from "./Scene";
 import { useEffect, useState, useRef } from "react";
 import { GameEvents } from "./GameState";
@@ -34,7 +39,8 @@ export function App() {
       }
       if (chargeBarRef.current) {
         chargeBarRef.current.style.width = `${val * 100}%`;
-        chargeBarRef.current.style.backgroundColor = val > 0.9 ? "#ff4444" : "#ffcc00";
+        chargeBarRef.current.style.backgroundColor =
+          val > 0.9 ? "#ff4444" : "#ffcc00";
       }
     };
 
@@ -66,7 +72,12 @@ export function App() {
   return (
     <>
       <KeyboardControls map={map}>
-        <Canvas shadows camera={{ fov: 60 }}>
+        <Canvas
+          shadows
+          camera={{ fov: 60 }}
+          dpr={[1, 1.5]}
+          gl={{ antialias: false, powerPreference: "high-performance" }}
+        >
           <Stats />
           <color attach="background" args={["#111"]} />
           <Scene />
@@ -112,7 +123,12 @@ export function App() {
           >
             <div
               ref={chargeBarRef}
-              style={{ width: "0%", height: "100%", background: "#ffcc00", transition: "width 0.05s linear" }} // Очень быстрая анимация
+              style={{
+                width: "0%",
+                height: "100%",
+                background: "#ffcc00",
+                transition: "width 0.05s linear",
+              }} // Очень быстрая анимация
             />
           </div>
         </>
@@ -137,7 +153,9 @@ export function App() {
           }}
         >
           <h1 style={{ fontSize: "4rem", margin: 0 }}>ВЫ ПОГИБЛИ</h1>
-          <p style={{ color: "white", fontSize: "2rem", marginTop: "20px" }}>ВОСКРЕШЕНИЕ ЧЕРЕЗ: {respawnTimer}</p>
+          <p style={{ color: "white", fontSize: "2rem", marginTop: "20px" }}>
+            ВОСКРЕШЕНИЕ ЧЕРЕЗ: {respawnTimer}
+          </p>
         </div>
       )}
     </>

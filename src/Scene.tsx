@@ -1,4 +1,4 @@
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import * as THREE from "three";
 import { Physics, RigidBody } from "@react-three/rapier";
 import { Stars, Text } from "@react-three/drei";
@@ -8,15 +8,35 @@ import { ChristmasTree } from "./ChristmasTree";
 import { Snow } from "./Snow";
 import { SnowballImpacts, type ImpactHandle } from "./SnowballImpacts";
 import { ObstacleCourse } from "./ObstacleCourse";
-import { ModernHouse, ClassicHouse, Snowman } from "./Decorations";
+import {
+  ModernHouse,
+  ClassicHouse,
+  Snowman,
+  OptimizedForest,
+} from "./Decorations";
+import type { EffectComposer } from "three/examples/jsm/Addons.js";
+import { getState, isHost, setState } from "playroomkit";
+import { SquidGameStage } from "./SquidGameStage";
 
 export function Scene() {
   const impactsRef = useRef<ImpactHandle>(null);
 
+  const currentStage = getState("gameStage") || "OBSTACLE_COURSE";
+  console.log("currentStage: ", currentStage);
+
+  // useEffect(() => {
+  //   if (isHost()) {
+  //     // Раскомментируй эту строку ОДИН РАЗ, сохрани,
+  //     // подожди пока обновится, а потом закомментируй обратно.
+  //     setState("gameStage", "OBSTACLE_COURSE", true);
+  //   }
+  // }, [currentStage]);
+
   const handleImpact = (pos: THREE.Vector3, normal?: THREE.Vector3) => {
     let finalNormal = normal;
     if (!normal) {
-      finalNormal = pos.y > 0.5 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
+      finalNormal =
+        pos.y > 0.5 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
     }
 
     if (impactsRef.current && finalNormal) {
@@ -53,10 +73,18 @@ export function Scene() {
         shadow-camera-bottom={-60}
       />
 
-      <Stars radius={100} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
+      <Stars
+        radius={100}
+        depth={50}
+        count={3000}
+        factor={4}
+        saturation={0}
+        fade
+        speed={1}
+      />
       <Snow />
 
-      <Physics>
+      <Physics debug>
         <GameManager />
         <BulletManager onImpact={handleImpact} />
 
@@ -78,30 +106,43 @@ export function Scene() {
         <Snowman position={[0, 1, 15]} />
 
         {/* Деревья у домов */}
-        <group position={[-8, 0, 8]} scale={[0.8, 0.8, 0.8]}>
+        <group position={[-8, 0, 50]} scale={[2.8, 3, 2.8]}>
           <ChristmasTree />
         </group>
-        <group position={[20, 0, 5]} scale={[0.8, 0.8, 0.8]}>
+        {/* <group position={[20, 0, 5]} scale={[0.8, 0.8, 0.8]}>
           <ChristmasTree />
-        </group>
+        </group> */}
+
+        <OptimizedForest trees={forestTrees} />
 
         {/* Лес */}
-        {forestTrees.map((tree, i) => (
-          <group key={i} position={tree.pos} scale={[tree.scale, tree.scale, tree.scale]}>
+        {/* {forestTrees.map((tree, i) => (
+          <group
+            key={i}
+            position={tree.pos}
+            scale={[tree.scale, tree.scale, tree.scale]}
+          >
             <ChristmasTree />
           </group>
-        ))}
+        ))} */}
 
         {/* ОБНОВЛЕННАЯ ПОЛОСА ПРЕПЯТСТВИЙ (В небе) */}
-        <ObstacleCourse />
-
+        {/* <ObstacleCourse /> */}
+        {currentStage === "OBSTACLE_COURSE" && <ObstacleCourse />}
+        {currentStage === "RED_LIGHT_GREEN_LIGHT" && <SquidGameStage />}
         {/* ЛЕСТНИЦА В НЕБО (чтобы добраться до старта, если спавн внизу) */}
         <group position={[0, 0, -5]}>
           <Text position={[0, 2, 0]} fontSize={1} color="gold">
             CLIMB TO START!
           </Text>
           {Array.from({ length: 20 }).map((_, i) => (
-            <RigidBody key={i} type="fixed" friction={0} position={[0, i * 2, -i * 2]} colliders="cuboid">
+            <RigidBody
+              key={i}
+              type="fixed"
+              friction={0}
+              position={[0, i * 2, -i * 2]}
+              colliders="cuboid"
+            >
               <mesh receiveShadow castShadow>
                 <boxGeometry args={[3, 0.2, 1]} />
                 <meshStandardMaterial color="#885533" />

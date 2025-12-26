@@ -1,258 +1,448 @@
-import { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody, RapierRigidBody, CuboidCollider, CylinderCollider } from "@react-three/rapier";
-import { Text } from "@react-three/drei";
+import { RigidBody, RapierRigidBody } from "@react-three/rapier";
+import { Text, Float } from "@react-three/drei";
+import { RPC, isHost, myPlayer, setState, usePlayersList } from "playroomkit";
 
-// --- ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ ---
+const COURSE_Y = 40;
 
-function Platform({
+// --- 1. СТЕКЛЯННАЯ ПЛИТКА (SQUID GAME) ---
+function GlassTile({
   position,
-  args,
-  color = "#88aaff",
-  friction = 1,
+  id,
+  isFragile,
 }: {
   position: [number, number, number];
-  args: [number, number, number];
-  color?: string;
-  friction?: number;
+  id: string;
+  isFragile: boolean;
 }) {
-  return (
-    <RigidBody type="fixed" friction={friction} position={position} colliders="cuboid">
-      <mesh receiveShadow>
-        <boxGeometry args={args} />
-        <meshStandardMaterial color={color} />
-      </mesh>
-    </RigidBody>
-  );
-}
-
-// --- БАТУТ (JUMP PAD) ---
-function JumpPad({ position }: { position: [number, number, number] }) {
-  return (
-    <RigidBody type="fixed" colliders="trimesh" position={position}>
-      {/* Визуальная часть */}
-      <mesh position={[0, 0.1, 0]}>
-        <cylinderGeometry args={[2, 2, 0.2, 32]} />
-        <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={2} />
-      </mesh>
-
-      {/* Текст */}
-      <Text position={[0, 1.5, 0]} fontSize={0.8} color="white" anchorX="center" anchorY="middle">
-        JUMP TO START!
-      </Text>
-
-      {/* Сенсор для логики прыжка (высокий цилиндр) */}
-      <CylinderCollider args={[1, 2]} sensor userData={{ isJumpPad: true }} />
-    </RigidBody>
-  );
-}
-
-// 1. ВРАЩАЮЩАЯСЯ БАЛКА
-function Spinner({ position, speed = 1 }: { position: [number, number, number]; speed?: number }) {
+  const [status, setStatus] = useState<"intact" | "broken">("intact");
   const ref = useRef<RapierRigidBody>(null);
-
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      const time = clock.getElapsedTime();
-      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), time * speed);
-      ref.current.setNextKinematicRotation(q);
-    }
-  });
-
-  return (
-    <group position={position}>
-      <Platform position={[0, -0.5, 0]} args={[3, 1, 3]} color="#555" />
-      <RigidBody ref={ref} type="kinematicPosition" position={[0, 1, 0]} colliders="cuboid">
-        <mesh castShadow>
-          <boxGeometry args={[12, 0.5, 0.5]} />
-          <meshStandardMaterial color="#ff4444" />
-        </mesh>
-      </RigidBody>
-    </group>
-  );
-}
-
-// 2. КОМАНДНЫЙ МОСТ
-function TeamBridge({ position }: { position: [number, number, number] }) {
-  const [pressed, setPressed] = useState(false);
-  const bridgeRef = useRef<RapierRigidBody>(null);
-
-  useFrame((_state, delta) => {
-    if (bridgeRef.current) {
-      const currentPos = bridgeRef.current.translation();
-      const targetZ = pressed ? position[2] + 4 : position[2] - 3;
-      const newZ = THREE.MathUtils.lerp(currentPos.z, targetZ, delta * 2);
-      bridgeRef.current.setNextKinematicTranslation({ x: position[0], y: position[1], z: newZ });
-    }
-  });
-
-  return (
-    <group>
-      {/* Кнопка активации */}
-      <RigidBody type="fixed" position={[position[0] - 5, position[1], position[2]]}>
-        <CuboidCollider
-          args={[1.5, 0.1, 1.5]}
-          sensor
-          onIntersectionEnter={({ other }) => {
-            if (other.rigidBodyObject) setPressed(true);
-          }}
-          onIntersectionExit={({ other }) => {
-            if (other.rigidBodyObject) setPressed(false);
-          }}
-        />
-        <mesh position={[0, -0.4, 0]}>
-          <boxGeometry args={[3, 0.2, 3]} />
-          <meshStandardMaterial color={pressed ? "#00ff00" : "#ff0000"} />
-        </mesh>
-        <Text position={[0, 1, 0]} fontSize={0.5} color="white">
-          {pressed ? "BRIDGE ACTIVE" : "HOLD TO ACTIVATE BRIDGE"}
-        </Text>
-      </RigidBody>
-
-      {/* Мост */}
-      <RigidBody ref={bridgeRef} type="kinematicPosition" position={position} colliders="cuboid">
-        <mesh receiveShadow>
-          <boxGeometry args={[4, 0.5, 8]} />
-          <meshStandardMaterial color="#88ccff" />
-        </mesh>
-      </RigidBody>
-    </group>
-  );
-}
-
-// 3. ДВИЖУЩИЕСЯ ПЛАТФОРМЫ
-function MovingPlatform({
-  startPos,
-  endPos,
-  speed = 1,
-  delay = 0,
-}: {
-  startPos: [number, number, number];
-  endPos: [number, number, number];
-  speed?: number;
-  delay?: number;
-}) {
-  const ref = useRef<RapierRigidBody>(null);
-
-  useFrame(({ clock }) => {
-    if (ref.current) {
-      const time = clock.getElapsedTime() + delay;
-      const t = (Math.sin(time * speed) + 1) / 2;
-      const x = THREE.MathUtils.lerp(startPos[0], endPos[0], t);
-      const y = THREE.MathUtils.lerp(startPos[1], endPos[1], t);
-      const z = THREE.MathUtils.lerp(startPos[2], endPos[2], t);
-      ref.current.setNextKinematicTranslation({ x, y, z });
-    }
-  });
-
-  return (
-    <RigidBody ref={ref} type="kinematicPosition" colliders="cuboid">
-      <mesh receiveShadow castShadow>
-        <boxGeometry args={[3, 0.5, 3]} />
-        <meshStandardMaterial color="#ccaaff" />
-      </mesh>
-    </RigidBody>
-  );
-}
-
-// 4. ПАДАЮЩИЕ ПЛАТФОРМЫ
-function FallingPlatform({ position }: { position: [number, number, number] }) {
-  const [falling, setFalling] = useState(false);
-  const [color, setColor] = useState("#44ff44");
-  const ref = useRef<RapierRigidBody>(null);
-  const startPos = useRef(new THREE.Vector3(...position));
 
   useEffect(() => {
-    if (falling) {
-      const t = setTimeout(() => {
-        setFalling(false);
-        setColor("#44ff44");
-        if (ref.current) {
-          ref.current.setTranslation(startPos.current, true);
-          ref.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
-          ref.current.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
-        }
-      }, 3000);
-      return () => clearTimeout(t);
-    }
-  }, [falling]);
+    const unsub = RPC.register(`glass_${id}`, (s: any) => setStatus(s));
+    return () => unsub();
+  }, [id]);
 
   return (
     <RigidBody
       ref={ref}
-      type={falling ? "dynamic" : "fixed"}
-      position={position}
+      type={status === "broken" ? "dynamic" : "kinematicPosition"}
+      position={[position[0], COURSE_Y, position[2]]}
       colliders="cuboid"
       onCollisionEnter={({ other }) => {
-        if (!falling && other.rigidBodyObject?.userData?.type !== "bullet") {
-          setColor("#ff0000");
-          setTimeout(() => setFalling(true), 500);
+        if (status === "intact" && other.rigidBodyObject) {
+          if (isFragile) {
+            RPC.call(`glass_${id}`, "broken", RPC.Mode.ALL);
+          }
         }
       }}
     >
-      <mesh>
-        <boxGeometry args={[2.5, 0.5, 2.5]} />
-        <meshStandardMaterial color={color} />
+      <mesh receiveShadow>
+        <boxGeometry args={[3.5, 0.2, 5]} />
+        <meshStandardMaterial
+          color={status === "broken" ? "#330000" : "#aaddff"}
+          transparent
+          opacity={0.5}
+          metalness={1}
+        />
       </mesh>
     </RigidBody>
   );
 }
 
-// --- СБОРКА УРОВНЯ ---
-export function ObstacleCourse() {
-  const START_HEIGHT = 40;
+// --- 2. ТРАМПЛИН (ТВОЙ РАБОЧИЙ) ---
+function LaunchPad({ position }: { position: [number, number, number] }) {
+  return (
+    <group position={[position[0], COURSE_Y, position[2]]}>
+      <RigidBody type="fixed" colliders="cuboid">
+        <mesh receiveShadow>
+          <boxGeometry args={[6, 0.8, 6]} />
+          <meshStandardMaterial color="#111" />
+        </mesh>
+      </RigidBody>
+      <RigidBody
+        type="fixed"
+        sensor
+        onIntersectionEnter={({ other }) => {
+          if (other.rigidBodyObject)
+            other.rigidBodyObject.setLinvel({ x: 0, y: 25, z: 65 }, true);
+        }}
+      >
+        <mesh position={[0, 0.5, 0]}>
+          <boxGeometry args={[5, 0.2, 5]} />
+          <meshStandardMaterial
+            color="#00ffff"
+            emissive="#00ffff"
+            emissiveIntensity={5}
+            toneMapped={false}
+          />
+        </mesh>
+      </RigidBody>
+      <Text position={[0, 2, 0]} fontSize={1} color="cyan">
+        BOOSTER
+      </Text>
+    </group>
+  );
+}
+
+// --- 3. ПАДАЮЩАЯ ПЛИТКА (ТВОЯ РАБОЧАЯ) ---
+// function FallingPlatform({
+//   position,
+//   id,
+// }: {
+//   position: [number, number, number];
+//   id: string;
+// }) {
+//   const [status, setStatus] = useState<"stable" | "falling">("stable");
+//   const ref = useRef<RapierRigidBody>(null);
+//   const startPos = new THREE.Vector3(position[0], COURSE_Y, position[2]);
+
+//   useEffect(() => {
+//     const unsub = RPC.register(`fall_${id}`, (newStatus: any) =>
+//       setStatus(newStatus)
+//     );
+//     return () => unsub();
+//   }, [id]);
+
+//   useEffect(() => {
+//     if (status === "falling" && isHost()) {
+//       setTimeout(() => {
+//         RPC.call(`fall_${id}`, "stable", RPC.Mode.ALL);
+//         ref.current?.setTranslation(startPos, true);
+//         ref.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
+//       }, 6000);
+//     }
+//   }, [status, id]);
+
+//   return (
+//     <RigidBody
+//       ref={ref}
+//       type={status === "falling" ? "dynamic" : "kinematicPosition"}
+//       position={[position[0], COURSE_Y, position[2]]}
+//       colliders="cuboid"
+//       onCollisionEnter={({ other }) => {
+//         if (status === "stable" && other.rigidBodyObject)
+//           RPC.call(`fall_${id}`, "falling", RPC.Mode.ALL);
+//       }}
+//     >
+//       <mesh receiveShadow>
+//         <boxGeometry args={[4, 0.5, 4]} />
+//         <meshStandardMaterial
+//           color={status === "falling" ? "#ff0000" : "#00ff88"}
+//         />
+//       </mesh>
+//     </RigidBody>
+//   );
+// }
+// 1. В ObstacleCourse при рендере списка:
+<group position={[0, 0, 305]}>
+  {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+    // ВАЖНО: Рассчитываем мировую позицию здесь!
+    // Группа на 305 по Z + смещение плитки i * 8
+    const worldZ = 305 + (i * 8 - 10);
+    const worldX = i % 2 === 0 ? 2 : -2;
+
+    return (
+      <FallingPlatform
+        key={i}
+        id={`tile_${i}`}
+        // Передаем уже готовую мировую позицию
+        position={[worldX, COURSE_Y, worldZ]}
+      />
+    );
+  })}
+</group>;
+
+// 2. В самом FallingPlatform УБИРАЕМ позицию у RigidBody и ставим через Ref:
+function FallingPlatform({
+  position,
+  id,
+}: {
+  position: [number, number, number];
+  id: string;
+}) {
+  const ref = useRef<RapierRigidBody>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [status, setStatus] = useState<"stable" | "warning" | "falling">(
+    "stable"
+  );
+
+  // Синхронизация состояния через RPC
+  useEffect(() => {
+    const unsub = RPC.register(
+      `fall_${id}`,
+      (newStatus: "stable" | "warning" | "falling") => {
+        setStatus(newStatus);
+      }
+    );
+    return () => unsub();
+  }, [id]);
+
+  // Логика таймингов (только хост)
+  useEffect(() => {
+    if (!isHost()) return;
+
+    if (status === "warning") {
+      const t = setTimeout(
+        () => RPC.call(`fall_${id}`, "falling", RPC.Mode.ALL),
+        800
+      );
+      return () => clearTimeout(t);
+    }
+
+    if (status === "falling") {
+      const t = setTimeout(
+        () => RPC.call(`fall_${id}`, "stable", RPC.Mode.ALL),
+        5000
+      );
+      return () => clearTimeout(t);
+    }
+  }, [status, id]);
+
+  // Инициализация и управление физикой
+  useEffect(() => {
+    if (!ref.current) return;
+
+    if (status === "stable") {
+      ref.current.setBodyType(2, true); // Fixed
+      ref.current.setTranslation(
+        { x: position[0], y: position[1], z: position[2] },
+        true
+      );
+      ref.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      ref.current.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    } else if (status === "falling") {
+      ref.current.setBodyType(0, true); // Dynamic
+    }
+  }, [status, position]);
+
+  // Визуальное дрожание меша
+  useFrame((state) => {
+    if (status === "warning" && meshRef.current) {
+      const t = state.clock.getElapsedTime();
+      meshRef.current.position.x = Math.sin(t * 60) * 0.08;
+      meshRef.current.position.z = Math.cos(t * 60) * 0.08;
+    } else if (meshRef.current) {
+      meshRef.current.position.set(0, 0, 0);
+    }
+  });
 
   return (
+    <RigidBody
+      ref={ref}
+      type="fixed"
+      position={position}
+      colliders="cuboid"
+      friction={1.5}
+      restitution={0}
+      onCollisionEnter={({ other }) => {
+        if (status === "stable" && other.rigidBody) {
+          RPC.call(`fall_${id}`, "warning", RPC.Mode.ALL);
+        }
+      }}
+    >
+      <mesh ref={meshRef} receiveShadow castShadow>
+        <boxGeometry args={[4, 0.5, 4]} />
+        <meshStandardMaterial
+          color={
+            status === "stable"
+              ? "#00ff88"
+              : status === "warning"
+              ? "#ffaa00"
+              : "#ff0000"
+          }
+          emissive={status === "warning" ? "#ffaa00" : "#000"}
+          emissiveIntensity={status === "warning" ? 2 : 0}
+        />
+      </mesh>
+    </RigidBody>
+  );
+}
+
+export function ObstacleCourse() {
+  return (
     <group>
-      {/* БАТУТ НА ЗЕМЛЕ */}
-      <JumpPad position={[0, 0, 0]} />
+      {/* 1. СТАРТ */}
+      <RigidBody
+        type="fixed"
+        position={[0, COURSE_Y - 0.5, 0]}
+        colliders="cuboid"
+      >
+        <mesh>
+          <boxGeometry args={[12, 1, 12]} />
+          <meshStandardMaterial color="#050505" />
+        </mesh>
+        <Text position={[0, 3, 0]} fontSize={1}>
+          SQUID GAME START
+        </Text>
+      </RigidBody>
 
-      {/* СТАРТ НАВЕРХУ */}
-      <Platform position={[0, START_HEIGHT, 0]} args={[10, 1, 10]} color="#444" />
-      <Text position={[0, START_HEIGHT + 3, 0]} fontSize={3} color="white">
-        START: TEAM UP!
-      </Text>
+      {/* 2. СТЕКЛЯННЫЙ МОСТ (ИЗ КАЛЬМАРА) */}
+      <group position={[0, 0, 15]}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <group key={i} position={[0, 0, i * 6]}>
+            <GlassTile
+              position={[-2.5, 0, 0]}
+              id={`g_l_${i}`}
+              isFragile={i % 2 === 0}
+            />
+            <GlassTile
+              position={[2.5, 0, 0]}
+              id={`g_r_${i}`}
+              isFragile={i % 2 !== 0}
+            />
+          </group>
+        ))}
+      </group>
 
-      {/* Платформы */}
-      <MovingPlatform startPos={[0, START_HEIGHT, 6]} endPos={[0, START_HEIGHT, 14]} speed={1.5} />
-      <MovingPlatform startPos={[0, START_HEIGHT, 16]} endPos={[0, START_HEIGHT, 24]} speed={1.5} delay={1} />
-      <Platform position={[0, START_HEIGHT, 30]} args={[8, 1, 8]} color="#666" />
+      {/* 3. ПРОМЕЖУТОЧНАЯ ЗОНА */}
+      <RigidBody
+        type="fixed"
+        position={[0, COURSE_Y - 0.5, 55]}
+        colliders="cuboid"
+      >
+        <mesh>
+          <boxGeometry args={[15, 1, 10]} />
+          <meshStandardMaterial color="#111" />
+        </mesh>
+      </RigidBody>
 
-      {/* Спиннер */}
-      <Spinner position={[0, START_HEIGHT + 1, 30]} speed={2} />
-      <Text position={[0, START_HEIGHT + 4, 30]} fontSize={1} color="red">
-        Watch out!
-      </Text>
+      {/* 4. ТРАМПЛИН */}
+      <LaunchPad position={[0, 0, 70]} />
 
-      {/* Мост */}
-      <Platform position={[0, START_HEIGHT, 45]} args={[12, 1, 8]} color="#444" />
-      <Text position={[0, START_HEIGHT + 3, 45]} fontSize={1.5} color="#aaf">
-        Help each other!
-      </Text>
-      <TeamBridge position={[0, START_HEIGHT, 53]} />
-      <Platform position={[0, START_HEIGHT, 65]} args={[10, 1, 10]} color="#666" />
+      {/* 5. LANDING ZONE */}
+      <RigidBody
+        type="fixed"
+        position={[0, COURSE_Y - 0.5, 130]}
+        colliders="cuboid"
+      >
+        <mesh>
+          <boxGeometry args={[15, 1, 15]} />
+          <meshStandardMaterial color="#222" />
+        </mesh>
+        <Text position={[0, 2, 0]} fontSize={1}>
+          LANDING ZONE
+        </Text>
+      </RigidBody>
 
-      {/* Паркур */}
-      <FallingPlatform position={[-3, START_HEIGHT, 72]} />
-      <FallingPlatform position={[0, START_HEIGHT, 76]} />
-      <FallingPlatform position={[3, START_HEIGHT, 80]} />
-      <FallingPlatform position={[0, START_HEIGHT, 84]} />
+      {/* 6. ПАДАЮЩИЕ ПЛИТКИ */}
 
-      {/* Финиш */}
-      <Platform position={[0, START_HEIGHT, 92]} args={[15, 1, 10]} color="#gold" />
-      <Text position={[0, START_HEIGHT + 3, 92]} fontSize={4} color="gold">
-        FINISH!
-      </Text>
+      <group>
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+          // Считаем АБСОЛЮТНЫЙ Z: база (305) + смещение (i * 8)
+          const absoluteZ = 145 + i * 8;
+          const absoluteX = i % 2 === 0 ? 2 : -2;
 
-      <mesh position={[5, START_HEIGHT + 1, 92]}>
-        <cylinderGeometry args={[0.5, 0.5, 2]} />
-        <meshStandardMaterial color="gold" />
-      </mesh>
-      <mesh position={[-5, START_HEIGHT + 1, 92]}>
-        <cylinderGeometry args={[0.5, 0.5, 2]} />
-        <meshStandardMaterial color="gold" />
-      </mesh>
+          return (
+            <FallingPlatform
+              key={i}
+              id={`tile_${i}`}
+              // Передаем плоский массив координат, без вложенности
+              position={[absoluteX, COURSE_Y, absoluteZ]}
+            />
+          );
+        })}
+      </group>
+
+      {/* 7. ФИНИШ */}
+
+      <FinishZone />
     </group>
+  );
+}
+
+function FinishZone() {
+  const players = usePlayersList();
+  const [count, setCount] = useState(0);
+
+  useFrame(() => {
+    // Считаем игроков, которые по Z ушли дальше 200м (финиш)
+    const reached = players.filter(
+      (p) => (p.getState("pos")?.z || 0) > 205
+    ).length;
+    setCount(reached);
+
+    // Если все (минимум 2) дошли — меняем стадию игры
+    if (reached >= players.length && players.length > 0 && isHost()) {
+      // setState("gameStage", "RED_LIGHT_GREEN_LIGHT", true);
+    }
+  });
+
+  return (
+    <RigidBody
+      type="fixed"
+      position={[0, COURSE_Y - 0.5, 210]}
+      colliders="cuboid"
+    >
+      <mesh>
+        <boxGeometry args={[20, 1, 20]} />
+        <meshStandardMaterial color="gold" />
+      </mesh>
+      <Text
+        position={[0, 4, 15]}
+        rotation={[0, Math.PI * 1, 0]}
+        fontSize={1}
+        color="white"
+      >
+        PLAYERS READY: {count} / {players.length}
+      </Text>
+    </RigidBody>
+  );
+}
+
+function VictoryZone() {
+  const players = usePlayersList(true);
+  const finishedCount = players.filter((p) => p.getState("atFinish")).length;
+  const isMeAtFinish = myPlayer().getState("atFinish");
+
+  useEffect(() => {
+    if (isHost() && finishedCount >= players.length && players.length > 0) {
+      const timer = setTimeout(() => {
+        // 1. Меняем стадию игры для всех
+        setState("gameStage", "RED_LIGHT_GREEN_LIGHT", true);
+
+        // 2. Телепортируем всех в начало новой зоны (Z=300)
+        players.forEach((p) => {
+          p.setState("pos", { x: 0, y: COURSE_Y + 2, z: 300 });
+        });
+      }, 3000); // 3 секунды задержки, чтобы все успели порадоваться
+      return () => clearTimeout(timer);
+    }
+  }, [finishedCount, players.length]);
+
+  return (
+    <RigidBody
+      type="fixed"
+      sensor
+      position={[0, COURSE_Y, 210]}
+      onIntersectionEnter={({ other }) => {
+        if (other.rigidBodyObject?.name === "player") {
+          myPlayer().setState("atFinish", true);
+        }
+      }}
+      onIntersectionExit={({ other }) => {
+        if (other.rigidBodyObject?.name === "player") {
+          myPlayer().setState("atFinish", false);
+        }
+      }}
+    >
+      <mesh>
+        <boxGeometry args={[15, 2, 15]} />
+        <meshStandardMaterial color="gold" opacity={0.5} transparent />
+      </mesh>
+
+      <Float speed={5}>
+        <Text position={[0, 5, 0]} fontSize={1} color="white">
+          PLAYERS AT FINISH: {finishedCount} / {players.length}
+        </Text>
+        {finishedCount === players.length && players.length > 0 && (
+          <Text position={[0, 7, 0]} fontSize={0.8} color="cyan">
+            ALL READY! STARTING STAGE 2...
+          </Text>
+        )}
+      </Float>
+    </RigidBody>
   );
 }
