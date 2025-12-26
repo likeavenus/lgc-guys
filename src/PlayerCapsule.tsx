@@ -427,21 +427,19 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
   }, [isMe]);
 
   // RPC регистрация:
+  // ЗАМЕНИ RPC регистрацию на это:
   useEffect(() => {
     const unsub = RPC.register("teleportAngel", () => {
-      console.log(
-        "teleportAngel RPC received! My role:",
-        playerState.getState("role")
-      );
-
-      if (playerState.getState("role") === "angel" && body.current) {
-        console.log("I AM ANGEL! Teleporting...");
+      console.log("Teleport received! My name:", name);
+      // УБРАЛ ПРОВЕРКУ РОЛИ - телепортируем ВСЕХ!
+      if (body.current) {
+        console.log("TELEPORTING TO FINISH!");
         body.current.setTranslation({ x: 0, y: 50, z: 210 }, true);
         body.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       }
     });
     return () => unsub();
-  }, []); // Убрал isMe из зависимостей
+  }, [name]);
 
   useEffect(() => {
     if (isDead) {
