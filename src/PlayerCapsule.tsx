@@ -347,7 +347,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
         </Billboard>
       )}
 
-      <group ref={visualRef}>
+      {/* <group ref={visualRef}>
         <Billboard position={[0, 1.8, 0]}>
           <Text
             fontSize={0.3}
@@ -378,6 +378,69 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
           <sphereGeometry args={[0.1]} />
           <meshStandardMaterial color="black" />
         </mesh>
+      </group> */}
+
+      <group ref={visualRef}>
+        <Billboard position={[0, 1.8, 0]}>
+          <Text
+            fontSize={0.3}
+            color="white"
+            outlineWidth={0.02}
+            outlineColor="black"
+          >
+            {name}
+          </Text>
+        </Billboard>
+
+        <mesh castShadow receiveShadow position={[0, 0, 0]}>
+          <capsuleGeometry args={[0.5, 1, 4, 8]} />
+          <meshStandardMaterial
+            color={
+              isRemoteDead || (isMe && isDead) ? "#555" : color || "hotpink"
+            }
+            transparent
+            opacity={isRemoteDead || (isMe && isDead) ? 0.5 : 1}
+          />
+        </mesh>
+
+        {/* МОРДОЧКА */}
+        <group position={[0, 0.3, 0]}>
+          {/* Левый глаз */}
+          <mesh position={[-0.15, 0.1, 0.45]}>
+            <sphereGeometry args={[0.08, 8, 8]} />
+            <meshStandardMaterial color="white" />
+          </mesh>
+          <mesh position={[-0.15, 0.1, 0.5]}>
+            <sphereGeometry args={[0.04, 6, 6]} />
+            <meshStandardMaterial color="black" />
+          </mesh>
+
+          {/* Правый глаз */}
+          <mesh position={[0.15, 0.1, 0.45]}>
+            <sphereGeometry args={[0.08, 8, 8]} />
+            <meshStandardMaterial color="white" />
+          </mesh>
+          <mesh position={[0.15, 0.1, 0.5]}>
+            <sphereGeometry args={[0.04, 6, 6]} />
+            <meshStandardMaterial color="black" />
+          </mesh>
+
+          {/* Улыбка (тор в виде дуги) */}
+          <mesh position={[0, -0.05, 0.45]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.15, 0.025, 8, 16, Math.PI]} />
+            <meshStandardMaterial color="#333" />
+          </mesh>
+
+          {/* Розовые щёчки */}
+          <mesh position={[-0.3, 0, 0.42]}>
+            <sphereGeometry args={[0.06, 8, 8]} />
+            <meshStandardMaterial color="#ff69b4" opacity={0.6} transparent />
+          </mesh>
+          <mesh position={[0.3, 0, 0.42]}>
+            <sphereGeometry args={[0.06, 8, 8]} />
+            <meshStandardMaterial color="#ff69b4" opacity={0.6} transparent />
+          </mesh>
+        </group>
       </group>
     </RigidBody>
   );
