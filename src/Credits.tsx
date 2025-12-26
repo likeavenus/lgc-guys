@@ -28,7 +28,7 @@ const TEAM = [
   { name: "Макс Пархоменко", role: "UX/UI Designer" },
   { name: "", role: "" },
   { name: "", role: "" },
-  { name: "Happy New Year 2025!", role: "🎄 From Team with Love 🎄" },
+  { name: "Happy New Year 2026!", role: "🎄 From Team with Love 🎄" },
 ];
 
 export function Credits({ active }: { active: boolean }) {
