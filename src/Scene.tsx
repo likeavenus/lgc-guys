@@ -155,7 +155,7 @@ export function BackgroundMusic() {
 
   useEffect(() => {
     // Создаем аудио
-    audioRef.current = new Audio("/bg-1.mp3");
+    audioRef.current = new Audio("/bgmusic.mp3");
     audioRef.current.loop = true;
     audioRef.current.volume = 0.3;
 

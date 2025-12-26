@@ -108,11 +108,171 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
     };
   }, [isMe, camera, isDead]);
 
+  // useFrame((state, delta) => {
+  //   if (!body.current) return;
+
+  //   const pos = body.current.translation();
+  //   const linvel = body.current.linvel();
+
+  //   const gameState = getState("squidStatus");
+  //   if (isMe && gameState === "RED") {
+  //     const speed = Math.sqrt(linvel.x ** 2 + linvel.z ** 2);
+  //     if (speed > 0.5) {
+  //       setIsDead(true);
+  //       RPC.call("play_shot_sound", null, RPC.Mode.ALL);
+  //     }
+  //   }
+
+  //   if (isMe) {
+  //     const time = state.clock.elapsedTime;
+  //     const squidStatus = getState("squidStatus");
+  //     if (squidStatus === "RED" && !isDead) {
+  //       const currentSpeed = Math.sqrt(linvel.x ** 2 + linvel.z ** 2);
+  //       if (currentSpeed > 0.3) {
+  //         setIsDead(true);
+  //         RPC.call("playShot", null, RPC.Mode.ALL);
+  //       }
+  //     }
+
+  //     if (angelPlayer) {
+  //       const aPos = angelPlayer.getState("pos");
+  //       if (aPos) {
+  //         const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(
+  //           new THREE.Vector3(aPos.x, aPos.y, aPos.z)
+  //         );
+  //         setShowAngelHint(dist > 30);
+  //       }
+  //     }
+
+  //     if (knockbackTimer.current > 0) {
+  //       knockbackTimer.current -= delta;
+  //       const camDir = dummyVec;
+  //       state.camera.getWorldDirection(camDir);
+  //       const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(
+  //         new THREE.Vector3(camDir.x, 0, camDir.z).normalize().multiplyScalar(6)
+  //       );
+  //       state.camera.position.lerp(targetCamPos, 0.25);
+  //       playerState.setState("pos", pos);
+  //       if (visualRef.current) {
+  //         playerState.setState("quat", visualRef.current.quaternion.toArray());
+  //       }
+  //       return;
+  //     }
+
+  //     if (!isDead && pos.y < -15) setIsDead(true);
+
+  //     if (isChargingRef.current) {
+  //       chargeRef.current = Math.min(chargeRef.current + delta, 1);
+  //       if (time - lastChargeEmit.current > 0.06) {
+  //         GameEvents.emit("charge", chargeRef.current);
+  //         lastChargeEmit.current = time;
+  //       }
+  //     }
+
+  //     const { forward, back, left, right, jump } = getKeys();
+  //     const camDir = dummyVec;
+  //     state.camera.getWorldDirection(camDir);
+  //     const forwardDir = isDead
+  //       ? camDir.clone()
+  //       : new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
+
+  //     frontVector.set(0, 0, 0);
+  //     sideVector.set(0, 0, 0);
+  //     if (forward) frontVector.add(forwardDir);
+  //     if (back) frontVector.sub(forwardDir);
+
+  //     const rightDir = new THREE.Vector3()
+  //       .crossVectors(camDir.normalize(), new THREE.Vector3(0, 1, 0))
+  //       .normalize();
+  //     if (right) sideVector.add(rightDir);
+  //     if (left) sideVector.sub(rightDir);
+
+  //     direction
+  //       .subVectors(frontVector, sideVector)
+  //       .addVectors(frontVector, sideVector)
+  //       .normalize();
+
+  //     if (direction.length() > 0.1 && visualRef.current) {
+  //       const targetRotation = Math.atan2(direction.x, direction.z);
+  //       const targetQuat = new THREE.Quaternion();
+  //       targetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetRotation);
+  //       visualRef.current.quaternion.slerp(targetQuat, 0.2);
+  //     }
+
+  //     if (visualRef.current) {
+  //       playerState.setState("quat", visualRef.current.quaternion.toArray());
+  //     }
+
+  //     const speed = isDead ? 15 : MOVE_SPEED;
+  //     direction.multiplyScalar(speed);
+  //     if (!forward && !back && !left && !right) direction.set(0, 0, 0);
+
+  //     if (isDead) {
+  //       const newPos = new THREE.Vector3(pos.x, pos.y, pos.z).add(
+  //         direction.multiplyScalar(delta)
+  //       );
+  //       body.current.setNextKinematicTranslation(newPos);
+  //       state.camera.position.lerp(newPos, 0.5);
+  //     } else {
+  //       if (isClimbing) {
+  //         let climbSpeed = 0;
+  //         if (forward) climbSpeed = 5;
+  //         if (back) climbSpeed = -5;
+  //         body.current.setLinvel(
+  //           { x: direction.x, y: climbSpeed, z: direction.z },
+  //           true
+  //         );
+  //       } else {
+  //         body.current.setLinvel(
+  //           { x: direction.x, y: linvel.y, z: direction.z },
+  //           true
+  //         );
+
+  //         // ПРАВИЛЬНЫЙ ПРЫЖОК: срабатывает только при НАЖАТИИ, а не при ЗАЖАТИИ
+  //         if (jump && !wasJumpPressed.current && Math.abs(linvel.y) < 0.5) {
+  //           body.current.applyImpulse({ x: 0, y: JUMP_FORCE, z: 0 }, true);
+  //         }
+  //         wasJumpPressed.current = jump; // Запоминаем состояние клавиши
+  //       }
+
+  //       const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(
+  //         new THREE.Vector3(camDir.x, 0, camDir.z).normalize().multiplyScalar(6)
+  //       );
+  //       state.camera.position.lerp(targetCamPos, 0.25);
+  //     }
+
+  //     playerState.setState("pos", pos);
+  //     playerState.setState("dead", isDead);
+  //   } else {
+  //     const pos = playerState.getState("pos");
+  //     if (pos) body.current.setTranslation(pos, true);
+  //     const quatArray = playerState.getState("quat");
+  //     if (quatArray && visualRef.current) {
+  //       const targetQuat = new THREE.Quaternion().fromArray(quatArray);
+  //       visualRef.current.quaternion.slerp(targetQuat, 0.2);
+  //     }
+  //   }
+  // });
+
   useFrame((state, delta) => {
     if (!body.current) return;
 
     const pos = body.current.translation();
     const linvel = body.current.linvel();
+
+    // ПРОВЕРКА АНГЕЛА - САМАЯ ПЕРВАЯ (для isMe и когда не мёртв)
+    if (isMe && angelPlayer && !isDead) {
+      const aPos = angelPlayer.getState("pos");
+      if (aPos) {
+        const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(
+          new THREE.Vector3(aPos.x, aPos.y, aPos.z)
+        );
+        setShowAngelHint(dist > 30);
+      }
+    } else if (isMe) {
+      // Если нет ангела или игрок мёртв - скрываем хинт
+      setShowAngelHint(false);
+    }
 
     const gameState = getState("squidStatus");
     if (isMe && gameState === "RED") {
@@ -134,15 +294,7 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
         }
       }
 
-      if (angelPlayer) {
-        const aPos = angelPlayer.getState("pos");
-        if (aPos) {
-          const dist = new THREE.Vector3(pos.x, pos.y, pos.z).distanceTo(
-            new THREE.Vector3(aPos.x, aPos.y, aPos.z)
-          );
-          setShowAngelHint(dist > 40);
-        }
-      }
+      // УБЕРИ ОТСЮДА БЛОК С ANGELPLAYER - он теперь вверху
 
       if (knockbackTimer.current > 0) {
         knockbackTimer.current -= delta;
@@ -228,11 +380,10 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
             true
           );
 
-          // ПРАВИЛЬНЫЙ ПРЫЖОК: срабатывает только при НАЖАТИИ, а не при ЗАЖАТИИ
           if (jump && !wasJumpPressed.current && Math.abs(linvel.y) < 0.5) {
             body.current.applyImpulse({ x: 0, y: JUMP_FORCE, z: 0 }, true);
           }
-          wasJumpPressed.current = jump; // Запоминаем состояние клавиши
+          wasJumpPressed.current = jump;
         }
 
         const targetCamPos = new THREE.Vector3(pos.x, pos.y + 2.5, pos.z).sub(
@@ -346,39 +497,6 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
           </Text>
         </Billboard>
       )}
-
-      {/* <group ref={visualRef}>
-        <Billboard position={[0, 1.8, 0]}>
-          <Text
-            fontSize={0.3}
-            color="white"
-            outlineWidth={0.02}
-            outlineColor="black"
-          >
-            {name}
-          </Text>
-        </Billboard>
-
-        <mesh castShadow receiveShadow position={[0, 0, 0]}>
-          <capsuleGeometry args={[0.5, 1, 4, 8]} />
-          <meshStandardMaterial
-            color={
-              isRemoteDead || (isMe && isDead) ? "#555" : color || "hotpink"
-            }
-            transparent
-            opacity={isRemoteDead || (isMe && isDead) ? 0.5 : 1}
-          />
-        </mesh>
-
-        <mesh position={[0.2, 0.4, 0.4]}>
-          <sphereGeometry args={[0.1]} />
-          <meshStandardMaterial color="black" />
-        </mesh>
-        <mesh position={[-0.2, 0.4, 0.4]}>
-          <sphereGeometry args={[0.1]} />
-          <meshStandardMaterial color="black" />
-        </mesh>
-      </group> */}
 
       <group ref={visualRef}>
         <Billboard position={[0, 1.8, 0]}>
