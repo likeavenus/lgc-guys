@@ -407,13 +407,16 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
 
   const isRemoteDead = !isMe && playerState.getState("dead");
 
+  // В PlayerCapsule.tsx, ЗАМЕНИ useEffect с L на это:
+
   useEffect(() => {
-    if (!isMe || !isHost()) return;
+    if (!isMe) return;
 
     const handleAdminTeleport = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "l") {
-        // Телепортируем ВСЕХ на финиш
-        RPC.call("teleportToFinish", null, RPC.Mode.ALL);
+      if (e.key.toLowerCase() === "l" && isHost()) {
+        // Телепортируем АНГЕЛА (DaryaKotik) на финиш
+        RPC.call("teleportAngel", null, RPC.Mode.ALL);
+        console.log("Teleporting angel to finish!");
       }
     };
 
@@ -421,17 +424,20 @@ export function PlayerCapsule({ playerState }: { playerState: PlayerState }) {
     return () => window.removeEventListener("keydown", handleAdminTeleport);
   }, [isMe]);
 
-  // В том же файле, добавь RPC регистрацию (после useEffect с DaryaKotik):
-
+  // RPC для телепорта ангела:
   useEffect(() => {
-    const unsub = RPC.register("teleportToFinish", () => {
-      if (body.current) {
+    if (!isMe) return;
+
+    const unsub = RPC.register("teleportAngel", () => {
+      // Проверяем, это ангел?
+      if (playerState.getState("role") === "angel" && body.current) {
+        console.log("Angel teleporting to finish!");
         body.current.setTranslation({ x: 0, y: 50, z: 210 }, true);
         body.current.setLinvel({ x: 0, y: 0, z: 0 }, true);
       }
     });
     return () => unsub();
-  }, []);
+  }, [isMe]);
 
   useEffect(() => {
     if (isDead) {
