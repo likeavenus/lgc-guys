@@ -6,11 +6,10 @@ import { App } from "./App";
 
 // Вход в Playroom
 insertCoin({
-  skipLobby: false, // Включаем Лобби, чтобы игрок мог ввести имя и выбрать цвет!
+  skipLobby: false,
   gameId: "bank-xmas-party",
   discord: false,
-  defaultStates: {},
-  streamMode: false,
+  reconnectGracePeriod: 0,
 }).then(() => {
   // Правильный рендер для React 18
   const container = document.getElementById("root");
