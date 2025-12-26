@@ -84,7 +84,7 @@ export function Scene() {
       />
       <Snow />
 
-      <Physics debug>
+      <Physics>
         <GameManager />
         <BulletManager onImpact={handleImpact} />
 

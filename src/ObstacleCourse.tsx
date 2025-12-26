@@ -54,88 +54,166 @@ function GlassTile({
 
 // --- 2. ТРАМПЛИН (ТВОЙ РАБОЧИЙ) ---
 function LaunchPad({ position }: { position: [number, number, number] }) {
+  const [isActivated, setIsActivated] = useState(false);
+  const padRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.PointLight>(null);
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+
+    if (padRef.current) {
+      // Постоянная пульсация
+      padRef.current.position.y = Math.sin(t * 3) * 0.05;
+
+      // Эффект сжатия при активации
+      if (isActivated) {
+        const scale = Math.max(
+          0.8,
+          1 - (state.clock.getElapsedTime() % 0.3) * 2
+        );
+        padRef.current.scale.set(1, scale, 1);
+      } else {
+        padRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
+      }
+    }
+
+    if (glowRef.current) {
+      // Пульсирующий свет
+      glowRef.current.intensity = 5 + Math.sin(t * 5) * 2;
+    }
+  });
+
+  useEffect(() => {
+    if (isActivated) {
+      const timer = setTimeout(() => setIsActivated(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isActivated]);
+
   return (
-    <group position={[position[0], COURSE_Y, position[2]]}>
+    <group position={position}>
+      {/* База трамплина */}
       <RigidBody type="fixed" colliders="cuboid">
-        <mesh receiveShadow>
+        <mesh receiveShadow castShadow>
           <boxGeometry args={[6, 0.8, 6]} />
-          <meshStandardMaterial color="#111" />
-        </mesh>
-      </RigidBody>
-      <RigidBody
-        type="fixed"
-        sensor
-        onIntersectionEnter={({ other }) => {
-          if (other.rigidBodyObject)
-            other.rigidBodyObject.setLinvel({ x: 0, y: 25, z: 65 }, true);
-        }}
-      >
-        <mesh position={[0, 0.5, 0]}>
-          <boxGeometry args={[5, 0.2, 5]} />
           <meshStandardMaterial
-            color="#00ffff"
-            emissive="#00ffff"
-            emissiveIntensity={5}
-            toneMapped={false}
+            color="#0a0a0a"
+            metalness={0.8}
+            roughness={0.3}
           />
         </mesh>
+
+        {/* Декоративные полосы по краям */}
+        {[-2.5, 2.5].map((x, i) => (
+          <mesh key={i} position={[x, 0.41, 0]}>
+            <boxGeometry args={[0.3, 0.1, 6]} />
+            <meshStandardMaterial
+              color="#00ffff"
+              emissive="#00ffff"
+              emissiveIntensity={2}
+            />
+          </mesh>
+        ))}
+        {[-2.5, 2.5].map((z, i) => (
+          <mesh key={`z${i}`} position={[0, 0.41, z]}>
+            <boxGeometry args={[6, 0.1, 0.3]} />
+            <meshStandardMaterial
+              color="#00ffff"
+              emissive="#00ffff"
+              emissiveIntensity={2}
+            />
+          </mesh>
+        ))}
       </RigidBody>
-      <Text position={[0, 2, 0]} fontSize={1} color="cyan">
-        BOOSTER
-      </Text>
+
+      {/* Активная зона */}
+      <RigidBody
+        type="fixed"
+        position={[0, 0.5, 0]}
+        colliders="cuboid"
+        onCollisionEnter={({ other }) => {
+          if (other.rigidBody) {
+            other.rigidBody.setLinvel({ x: 0, y: 31, z: 70 }, true);
+            setIsActivated(true);
+          }
+        }}
+      >
+        <mesh ref={padRef} position={[0, 0, 0]} castShadow>
+          <boxGeometry args={[5, 0.3, 5]} />
+          <meshStandardMaterial
+            color={isActivated ? "#ffffff" : "#00ffff"}
+            emissive={isActivated ? "#00ffff" : "#00ffff"}
+            emissiveIntensity={isActivated ? 8 : 3}
+            toneMapped={false}
+            metalness={0.9}
+            roughness={0.1}
+          />
+        </mesh>
+
+        {/* Яркий свет снизу */}
+        <pointLight
+          ref={glowRef}
+          position={[0, -0.3, 0]}
+          intensity={5}
+          distance={8}
+          color="#00ffff"
+          castShadow={false}
+        />
+
+        {/* Частицы вокруг (статичные кольца) */}
+        {[0.3, 0.6, 0.9].map((offset, i) => (
+          <Float
+            key={i}
+            speed={2 + i}
+            rotationIntensity={0.2}
+            floatIntensity={0.5}
+          >
+            <mesh position={[0, offset, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[3 + i * 0.5, 0.05, 8, 32]} />
+              <meshStandardMaterial
+                color="#00ffff"
+                emissive="#00ffff"
+                emissiveIntensity={2}
+                transparent
+                opacity={0.4 - i * 0.1}
+              />
+            </mesh>
+          </Float>
+        ))}
+      </RigidBody>
+
+      {/* Анимированный текст */}
+      <Float speed={1.5} floatIntensity={0.3}>
+        <Text
+          position={[0, 2.5, 0]}
+          rotation={[0, Math.PI, 0]}
+          fontSize={1.2}
+          color="#00ffff"
+          outlineWidth={0.05}
+          outlineColor="#000000"
+        >
+          BOOSTER
+        </Text>
+      </Float>
+
+      {/* Стрелки вверх */}
+      {[-1, 0, 1].map((x, i) => (
+        <Float key={i} speed={3 + i * 0.5} floatIntensity={1}>
+          <Text
+            position={[x * 1.5, 1.5 + i * 0.2, 0]}
+            rotation={[0, Math.PI, 0]}
+            fontSize={0.8}
+            color="#ffff00"
+            anchorX="center"
+          >
+            ↑
+          </Text>
+        </Float>
+      ))}
     </group>
   );
 }
 
-// --- 3. ПАДАЮЩАЯ ПЛИТКА (ТВОЯ РАБОЧАЯ) ---
-// function FallingPlatform({
-//   position,
-//   id,
-// }: {
-//   position: [number, number, number];
-//   id: string;
-// }) {
-//   const [status, setStatus] = useState<"stable" | "falling">("stable");
-//   const ref = useRef<RapierRigidBody>(null);
-//   const startPos = new THREE.Vector3(position[0], COURSE_Y, position[2]);
-
-//   useEffect(() => {
-//     const unsub = RPC.register(`fall_${id}`, (newStatus: any) =>
-//       setStatus(newStatus)
-//     );
-//     return () => unsub();
-//   }, [id]);
-
-//   useEffect(() => {
-//     if (status === "falling" && isHost()) {
-//       setTimeout(() => {
-//         RPC.call(`fall_${id}`, "stable", RPC.Mode.ALL);
-//         ref.current?.setTranslation(startPos, true);
-//         ref.current?.setLinvel({ x: 0, y: 0, z: 0 }, true);
-//       }, 6000);
-//     }
-//   }, [status, id]);
-
-//   return (
-//     <RigidBody
-//       ref={ref}
-//       type={status === "falling" ? "dynamic" : "kinematicPosition"}
-//       position={[position[0], COURSE_Y, position[2]]}
-//       colliders="cuboid"
-//       onCollisionEnter={({ other }) => {
-//         if (status === "stable" && other.rigidBodyObject)
-//           RPC.call(`fall_${id}`, "falling", RPC.Mode.ALL);
-//       }}
-//     >
-//       <mesh receiveShadow>
-//         <boxGeometry args={[4, 0.5, 4]} />
-//         <meshStandardMaterial
-//           color={status === "falling" ? "#ff0000" : "#00ff88"}
-//         />
-//       </mesh>
-//     </RigidBody>
-//   );
-// }
 // 1. В ObstacleCourse при рендере списка:
 <group position={[0, 0, 305]}>
   {[0, 1, 2, 3, 4, 5, 6].map((i) => {
@@ -310,7 +388,54 @@ export function ObstacleCourse() {
       </RigidBody>
 
       {/* 4. ТРАМПЛИН */}
-      <LaunchPad position={[0, 0, 70]} />
+      <LaunchPad position={[0, 40, 67]} />
+
+      {/* Плавающие кольца-подсказки */}
+      <FloatingRing position={[0, COURSE_Y + 15, 85]} />
+      <FloatingRing position={[0, COURSE_Y + 20, 100]} />
+
+      {/* Две движущиеся платформы для "посадки" */}
+      <MovingPlatform
+        position={[-4, COURSE_Y, 110]}
+        range={7}
+        axis="x"
+        speed={1.5}
+      />
+
+      <MovingPlatform
+        position={[-4, COURSE_Y, 100]}
+        range={2}
+        axis="x"
+        speed={1.5}
+      />
+
+      <MovingPlatform
+        position={[8, COURSE_Y, 100]}
+        range={6}
+        axis="x"
+        speed={1.9}
+      />
+
+      <MovingPlatform
+        position={[8, COURSE_Y, 91]}
+        range={4}
+        axis="x"
+        speed={1.3}
+      />
+
+      <MovingPlatform
+        position={[8, COURSE_Y, 86]}
+        range={10}
+        axis="x"
+        speed={1.1}
+      />
+
+      <MovingPlatform
+        position={[8, COURSE_Y, 80]}
+        range={4}
+        axis="x"
+        speed={1.1}
+      />
 
       {/* 5. LANDING ZONE */}
       <RigidBody
@@ -322,7 +447,7 @@ export function ObstacleCourse() {
           <boxGeometry args={[15, 1, 15]} />
           <meshStandardMaterial color="#222" />
         </mesh>
-        <Text position={[0, 2, 0]} fontSize={1}>
+        <Text position={[0, 2, 0]} rotation={[0, Math.PI * 1, 0]} fontSize={1}>
           LANDING ZONE
         </Text>
       </RigidBody>
@@ -392,57 +517,71 @@ function FinishZone() {
   );
 }
 
-function VictoryZone() {
-  const players = usePlayersList(true);
-  const finishedCount = players.filter((p) => p.getState("atFinish")).length;
-  const isMeAtFinish = myPlayer().getState("atFinish");
+// --- ДВИЖУЩАЯСЯ ПЛАТФОРМА (НОВЫЙ КОМПОНЕНТ) ---
+function MovingPlatform({
+  position,
+  range = 6,
+  axis = "x",
+  speed = 2,
+}: {
+  position: [number, number, number];
+  range?: number;
+  axis?: "x" | "z";
+  speed?: number;
+}) {
+  const ref = useRef<RapierRigidBody>(null);
+  const startPos = useMemo(() => new THREE.Vector3(...position), [position]);
 
-  useEffect(() => {
-    if (isHost() && finishedCount >= players.length && players.length > 0) {
-      const timer = setTimeout(() => {
-        // 1. Меняем стадию игры для всех
-        setState("gameStage", "RED_LIGHT_GREEN_LIGHT", true);
+  useFrame((state) => {
+    if (ref.current) {
+      const t = state.clock.getElapsedTime();
+      const offset = Math.sin(t * speed) * range;
 
-        // 2. Телепортируем всех в начало новой зоны (Z=300)
-        players.forEach((p) => {
-          p.setState("pos", { x: 0, y: COURSE_Y + 2, z: 300 });
+      if (axis === "x") {
+        ref.current.setNextKinematicTranslation({
+          x: startPos.x + offset,
+          y: startPos.y,
+          z: startPos.z,
         });
-      }, 3000); // 3 секунды задержки, чтобы все успели порадоваться
-      return () => clearTimeout(timer);
+      } else {
+        ref.current.setNextKinematicTranslation({
+          x: startPos.x,
+          y: startPos.y,
+          z: startPos.z + offset,
+        });
+      }
     }
-  }, [finishedCount, players.length]);
+  });
 
   return (
     <RigidBody
-      type="fixed"
-      sensor
-      position={[0, COURSE_Y, 210]}
-      onIntersectionEnter={({ other }) => {
-        if (other.rigidBodyObject?.name === "player") {
-          myPlayer().setState("atFinish", true);
-        }
-      }}
-      onIntersectionExit={({ other }) => {
-        if (other.rigidBodyObject?.name === "player") {
-          myPlayer().setState("atFinish", false);
-        }
-      }}
+      ref={ref}
+      type="kinematicPosition"
+      position={position}
+      colliders="cuboid"
+      friction={2}
     >
-      <mesh>
-        <boxGeometry args={[15, 2, 15]} />
-        <meshStandardMaterial color="gold" opacity={0.5} transparent />
+      <mesh receiveShadow castShadow userData={{ isMovingPlatform: true }}>
+        <boxGeometry args={[5, 0.6, 5]} />
+        <meshStandardMaterial color="#3b82f6" metalness={0.8} roughness={0.2} />
       </mesh>
-
-      <Float speed={5}>
-        <Text position={[0, 5, 0]} fontSize={1} color="white">
-          PLAYERS AT FINISH: {finishedCount} / {players.length}
-        </Text>
-        {finishedCount === players.length && players.length > 0 && (
-          <Text position={[0, 7, 0]} fontSize={0.8} color="cyan">
-            ALL READY! STARTING STAGE 2...
-          </Text>
-        )}
-      </Float>
     </RigidBody>
+  );
+}
+
+// --- ПЛАВАЮЩИЕ КОЛЬЦА (ДЛЯ НАПРАВЛЕНИЯ) ---
+function FloatingRing({ position }: { position: [number, number, number] }) {
+  return (
+    <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
+      <mesh position={position}>
+        <torusGeometry args={[2, 0.3, 16, 32]} />
+        <meshStandardMaterial
+          color="#fbbf24"
+          emissive="#fbbf24"
+          emissiveIntensity={2}
+          toneMapped={false}
+        />
+      </mesh>
+    </Float>
   );
 }
